@@ -4,12 +4,16 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
+	"runtime/pprof"
 
 	"github.com/codegangsta/cli"
 	"github.com/ricbra/rabbitmq-cli-consumer/command"
 	"github.com/ricbra/rabbitmq-cli-consumer/config"
 	"github.com/ricbra/rabbitmq-cli-consumer/consumer"
 )
+
+var memprofile = ""
 
 func main() {
 	app := cli.NewApp()
@@ -43,6 +47,10 @@ func main() {
 			Name:  "queue-name, q",
 			Usage: "Optional queue name to which can be passed in, without needing to define it in config, if set will override config queue name",
 		},
+		cli.StringFlag{
+			Name:  "memprof, m",
+			Usage: "Write memory profile to file",
+		},
 	}
 	app.Action = func(c *cli.Context) {
 		if c.String("configuration") == "" && c.String("executable") == "" {
@@ -50,6 +58,7 @@ func main() {
 			os.Exit(1)
 		}
 
+		memprofile = c.String("memprof")
 		verbose := c.Bool("verbose")
 
 		logger := log.New(os.Stderr, "", log.Ldate|log.Ltime)
@@ -86,6 +95,19 @@ func main() {
 	}
 
 	app.Run(os.Args)
+
+	// write the memory profile if flag is set
+	if memprofile != "" {
+		f, err := os.Create(memprofile)
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		runtime.GC()
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
+		f.Close()
+	}
 }
 
 func createLogger(filename string, verbose bool, out io.Writer) (*log.Logger, error) {
