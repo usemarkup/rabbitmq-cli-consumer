@@ -15,7 +15,23 @@ import (
 
 var memprofile = ""
 
+func exitWithProfile(code int) {
+	if memprofile != "" {
+		f, err := os.Create(memprofile)
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		runtime.GC()
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
+		f.Close()
+	}
+	os.Exit(code)
+}
+
 func main() {
+	cli.OsExiter = exitWithProfile
 	app := cli.NewApp()
 	app.Name = "rabbitmq-cli-consumer"
 	app.Usage = "Consume RabbitMQ easily to any cli program"
@@ -95,19 +111,6 @@ func main() {
 	}
 
 	app.Run(os.Args)
-
-	// write the memory profile if flag is set
-	if memprofile != "" {
-		f, err := os.Create(memprofile)
-		if err != nil {
-			log.Fatal("could not create memory profile: ", err)
-		}
-		runtime.GC()
-		if err := pprof.WriteHeapProfile(f); err != nil {
-			log.Fatal("could not write memory profile: ", err)
-		}
-		f.Close()
-	}
 }
 
 func createLogger(filename string, verbose bool, out io.Writer) (*log.Logger, error) {
